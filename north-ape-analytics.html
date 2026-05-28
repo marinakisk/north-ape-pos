@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>North Ape — Analytics</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#080F08;--s1:#0F1A0F;--s2:#162016;--bd:rgba(80,160,80,.15);--ac:#6DBF5A;--ac2:#4E9940;--tx:#E8F0E0;--mt:#5A7050;--dn:#E05C5C;--or:#E09A3A;--bl:#3A8FD5;--wm:#C8A84B}
+html,body{background:var(--bg);color:var(--tx);font-family:sans-serif;min-height:100vh}
+
+/* LOGIN */
+#login{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.lbrand{font-size:2rem;font-weight:900;color:var(--ac);letter-spacing:4px}
+.lcard{background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:24px;width:300px;text-align:center}
+.lcard h2{font-size:.9rem;color:var(--mt);margin-bottom:14px;text-transform:uppercase;letter-spacing:2px}
+.pdisp{font-size:2.2rem;letter-spacing:8px;color:var(--ac);margin-bottom:14px;height:40px;font-weight:900}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.pb{background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:14px;font-size:1.2rem;font-weight:600;cursor:pointer}
+.pb:active,.pb:hover{background:var(--ac);color:#051005}
+.pbclr{color:var(--dn)}
+.pbok{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#051005;border-color:transparent}
+
+/* SHELL */
+#app{display:none}
+#app.on{display:block}
+#topbar{background:rgba(8,15,8,.98);border-bottom:1px solid var(--bd);padding:0 20px;height:52px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
+.tbrand{font-size:1.1rem;font-weight:900;color:var(--ac);letter-spacing:2px}
+.tout{background:transparent;border:1px solid rgba(224,92,92,.3);border-radius:7px;padding:4px 10px;color:var(--dn);font-size:.72rem;cursor:pointer;margin-left:auto}
+
+/* RANGE PICKER */
+.range-bar{background:var(--s1);border-bottom:1px solid var(--bd);padding:10px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rbtn{padding:6px 14px;border-radius:20px;border:1px solid var(--bd);background:var(--s2);color:var(--mt);font-size:.75rem;font-weight:600;cursor:pointer}
+.rbtn.on{border-color:var(--ac);background:rgba(100,190,80,.1);color:var(--ac)}
+.rdate{padding:5px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--tx);font-size:.78rem;outline:none}
+.rload{padding:6px 14px;border-radius:8px;background:var(--ac);border:none;color:#051005;font-size:.75rem;font-weight:700;cursor:pointer}
+.rlbl{font-size:.72rem;color:var(--mt)}
+
+/* CONTENT */
+#content{padding:16px 20px;max-width:1200px;margin:0 auto}
+
+/* KPI CARDS */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.kpi{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:16px}
+.kpi-lbl{font-size:.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--mt);margin-bottom:6px}
+.kpi-val{font-size:1.8rem;font-weight:900;color:var(--ac)}
+.kpi-sub{font-size:.72rem;color:var(--mt);margin-top:3px}
+.kpi-dn .kpi-val{color:var(--dn)}
+.kpi-or .kpi-val{color:var(--or)}
+.kpi-bl .kpi-val{color:var(--bl)}
+.kpi-wm .kpi-val{color:var(--wm)}
+
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:16px;margin-bottom:20px}
+.chart-box{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:16px}
+.chart-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--mt);margin-bottom:12px}
+.chart-wrap{position:relative;height:220px}
+
+/* TOP PRODUCTS */
+.top-list{margin-bottom:20px}
+.top-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd)}
+.top-item:last-child{border-bottom:none}
+.top-rank{font-size:.72rem;font-weight:900;color:var(--mt);width:22px}
+.top-bar-wrap{flex:1;background:var(--s2);border-radius:4px;height:6px;overflow:hidden}
+.top-bar{background:linear-gradient(90deg,var(--ac),var(--ac2));height:100%;border-radius:4px;transition:width .4s}
+.top-name{font-size:.82rem;font-weight:600;min-width:140px}
+.top-val{font-size:.82rem;color:var(--wm);font-weight:700;white-space:nowrap}
+.top-cnt{font-size:.68rem;color:var(--mt);white-space:nowrap;margin-left:4px}
+
+/* VAT */
+.vat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:20px}
+.vat-card{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:14px}
+.vat-rate{font-size:.7rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--mt);margin-bottom:4px}
+.vat-gross{font-size:1.3rem;font-weight:900;color:var(--tx)}
+.vat-tax{font-size:.9rem;color:var(--dn);font-weight:700;margin-top:2px}
+.vat-net{font-size:.78rem;color:var(--mt);margin-top:1px}
+
+/* Section title */
+.sec-title{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:var(--mt);margin-bottom:10px;margin-top:4px}
+
+/* Loading */
+#loading{display:none;text-align:center;padding:40px;color:var(--mt)}
+#loading.on{display:block}
+
+.toast{position:fixed;bottom:18px;right:18px;background:var(--ac);color:#051005;padding:9px 18px;border-radius:50px;font-size:.82rem;font-weight:700;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div style="font-size:2.5rem">🦍</div>
+  <div class="lbrand">NORTH APE</div>
+  <div style="font-size:.8rem;color:var(--mt);letter-spacing:2px;text-transform:uppercase">Analytics</div>
+  <div class="lcard">
+    <h2>PIN</h2>
+    <div class="pdisp" id="pd">----</div>
+    <div class="pgrid">
+      <button class="pb" onclick="pp('1')">1</button><button class="pb" onclick="pp('2')">2</button><button class="pb" onclick="pp('3')">3</button>
+      <button class="pb" onclick="pp('4')">4</button><button class="pb" onclick="pp('5')">5</button><button class="pb" onclick="pp('6')">6</button>
+      <button class="pb" onclick="pp('7')">7</button><button class="pb" onclick="pp('8')">8</button><button class="pb" onclick="pp('9')">9</button>
+      <button class="pb pbclr" onclick="pc()">⌫</button><button class="pb" onclick="pp('0')">0</button><button class="pb pbok" onclick="pe()">✓</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="topbar">
+    <div class="tbrand">📊 ANALYTICS</div>
+    <button class="tout" onclick="doLogout()">Έξοδος</button>
+  </div>
+  <div class="range-bar">
+    <button class="rbtn on" id="r-today" onclick="setRange('today')">Σήμερα</button>
+    <button class="rbtn" id="r-week" onclick="setRange('week')">7 ημέρες</button>
+    <button class="rbtn" id="r-month" onclick="setRange('month')">30 ημέρες</button>
+    <span class="rlbl" style="margin-left:8px">ή</span>
+    <input type="date" class="rdate" id="r-from">
+    <span class="rlbl">—</span>
+    <input type="date" class="rdate" id="r-to">
+    <button class="rload" onclick="loadCustomRange()">Φόρτωση</button>
+  </div>
+  <div id="loading">⏳ Φόρτωση δεδομένων...</div>
+  <div id="content" style="display:none">
+    <div class="kpi-grid" id="kpis"></div>
+    <div class="charts-grid">
+      <div class="chart-box"><div class="chart-title">💰 Πωλήσεις ανά Ώρα</div><div class="chart-wrap"><canvas id="chart-hour"></canvas></div></div>
+      <div class="chart-box"><div class="chart-title">📅 Πωλήσεις ανά Ημέρα</div><div class="chart-wrap"><canvas id="chart-day"></canvas></div></div>
+      <div class="chart-box"><div class="chart-title">🧾 Take Away / Delivery / Τραπέζια</div><div class="chart-wrap"><canvas id="chart-mode"></canvas></div></div>
+      <div class="chart-box"><div class="chart-title">💳 Τρόποι Πληρωμής</div><div class="chart-wrap"><canvas id="chart-pay"></canvas></div></div>
+    </div>
+    <div class="sec-title">🏆 Top Προϊόντα</div>
+    <div class="chart-box" style="margin-bottom:16px"><div id="top-list" class="top-list"></div></div>
+    <div class="sec-title">🧾 Ανάλυση ΦΠΑ</div>
+    <div class="vat-grid" id="vat-grid"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const PIN='1234';
+const FB={apiKey:"AIzaSyDAStK-oWJZyzHy4hOtv8GUlxpPyNaPgvQ",authDomain:"north-ape.firebaseapp.com",projectId:"north-ape",storageBucket:"north-ape.firebasestorage.app",messagingSenderId:"434937674645",appId:"1:434937674645:web:e3a219d4414acca94dd49c"};
+firebase.initializeApp(FB);
+const db=firebase.firestore();
+
+let pin='',charts={};
+let rangeFrom=null,rangeTo=null;
+
+// PIN
+function pp(d){if(pin.length>=4)return;pin+=d;upd();if(pin.length===4)setTimeout(pe,200)}
+function pc(){pin=pin.slice(0,-1);upd()}
+function upd(){document.getElementById('pd').textContent='●'.repeat(pin.length)+'-'.repeat(4-pin.length)}
+function pe(){
+  if(pin===PIN){document.getElementById('login').style.display='none';document.getElementById('app').classList.add('on');setRange('today');}
+  else{const p=document.getElementById('pd');p.textContent='✕✕✕✕';p.style.color='#E05C5C';setTimeout(()=>{pin='';upd();p.style.color=''},800);}
+}
+function doLogout(){document.getElementById('app').classList.remove('on');document.getElementById('login').style.display='flex';pin='';upd();}
+
+function setRange(r){
+  ['today','week','month'].forEach(x=>document.getElementById('r-'+x).classList.toggle('on',x===r));
+  const now=new Date();
+  rangeTo=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);
+  if(r==='today') rangeFrom=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  else if(r==='week'){rangeFrom=new Date(now);rangeFrom.setDate(rangeFrom.getDate()-6);rangeFrom.setHours(0,0,0,0);}
+  else{rangeFrom=new Date(now);rangeFrom.setDate(rangeFrom.getDate()-29);rangeFrom.setHours(0,0,0,0);}
+  loadData();
+}
+function loadCustomRange(){
+  const f=document.getElementById('r-from').value;
+  const t=document.getElementById('r-to').value;
+  if(!f||!t){toast('⚠️ Επίλεξε ημερομηνίες');return}
+  ['today','week','month'].forEach(x=>document.getElementById('r-'+x).classList.remove('on'));
+  rangeFrom=new Date(f);rangeFrom.setHours(0,0,0,0);
+  rangeTo=new Date(t);rangeTo.setHours(23,59,59,999);
+  loadData();
+}
+
+async function loadData(){
+  document.getElementById('loading').classList.add('on');
+  document.getElementById('content').style.display='none';
+  Object.values(charts).forEach(c=>c.destroy());charts={};
+  try{
+    // Load pos_sales
+    const salesSnap=await db.collection('pos_sales').where('timestamp','>=',rangeFrom).where('timestamp','<=',rangeTo).get();
+    const sales=[];salesSnap.forEach(d=>sales.push({id:d.id,...d.data()}));
+    // Load table_orders
+    const tblSnap=await db.collection('table_orders').where('closedAt','>=',rangeFrom).where('closedAt','<=',rangeTo).where('status','==','closed').get();
+    const tblOrders=[];tblSnap.forEach(d=>tblOrders.push({id:d.id,...d.data()}));
+    render(sales,tblOrders);
+  }catch(e){toast('❌ '+e.message);console.error(e);}
+  document.getElementById('loading').classList.remove('on');
+  document.getElementById('content').style.display='block';
+}
+
+function fmt(n){return n.toFixed(2).replace('.',',')}
+function fmtE(n){return fmt(n)+'€'}
+
+function render(sales,tblOrders){
+  // ── KPIs ───────────────────────────────────────────────────
+  let totTA=0,totDL=0,totTB=0,cntTA=0,cntDL=0,cntTB=0;
+  sales.forEach(s=>{
+    const t=parseFloat(s.total)||0;
+    if(s.mode==='ta'){totTA+=t;cntTA++;}
+    else if(s.mode==='dl'){totDL+=t;cntDL++;}
+  });
+  tblOrders.forEach(o=>{const t=parseFloat(o.total)||0;totTB+=t;cntTB++;});
+  const total=totTA+totDL+totTB;
+  const cnt=cntTA+cntDL+cntTB;
+  const avg=cnt?total/cnt:0;
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><div class="kpi-lbl">Γενικό Σύνολο</div><div class="kpi-val">${fmtE(total)}</div><div class="kpi-sub">${cnt} παραγγελίες</div></div>
+    <div class="kpi kpi-or"><div class="kpi-lbl">🥡 Take Away</div><div class="kpi-val">${fmtE(totTA)}</div><div class="kpi-sub">${cntTA} παραγγελίες</div></div>
+    <div class="kpi kpi-bl"><div class="kpi-lbl">🚚 Delivery</div><div class="kpi-val">${fmtE(totDL)}</div><div class="kpi-sub">${cntDL} παραγγελίες</div></div>
+    <div class="kpi kpi-wm"><div class="kpi-lbl">🪑 Τραπέζια</div><div class="kpi-val">${fmtE(totTB)}</div><div class="kpi-sub">${cntTB} τραπέζια</div></div>
+    <div class="kpi kpi-dn"><div class="kpi-lbl">Μέση Αξία</div><div class="kpi-val">${fmtE(avg)}</div><div class="kpi-sub">ανά παραγγελία</div></div>`;
+
+  // ── HOURLY ─────────────────────────────────────────────────
+  const byHour=Array(24).fill(0);
+  [...sales,...tblOrders].forEach(s=>{
+    const ts=s.timestamp?.toDate()||s.closedAt?.toDate();
+    if(ts){const h=ts.getHours();byHour[h]+=(parseFloat(s.total)||0);}
+  });
+  makeBar('chart-hour',Array.from({length:24},(_,i)=>i+'h'),byHour,'rgba(109,191,90,.7)','rgba(109,191,90,1)');
+
+  // ── DAILY ──────────────────────────────────────────────────
+  const dayMap={};
+  [...sales,...tblOrders].forEach(s=>{
+    const ts=s.timestamp?.toDate()||s.closedAt?.toDate();
+    if(!ts)return;
+    const k=ts.toLocaleDateString('el-GR',{day:'2-digit',month:'2-digit'});
+    dayMap[k]=(dayMap[k]||0)+(parseFloat(s.total)||0);
+  });
+  const dayKeys=Object.keys(dayMap).sort((a,b)=>{
+    const [da,ma]=a.split('/');const [db2,mb]=b.split('/');
+    return new Date(2024,+ma-1,+da)-new Date(2024,+mb-1,+db2);
+  });
+  makeLine('chart-day',dayKeys,dayKeys.map(k=>dayMap[k]));
+
+  // ── MODE PIE ───────────────────────────────────────────────
+  makeDoughnut('chart-mode',['Take Away','Delivery','Τραπέζια'],[totTA,totDL,totTB],['rgba(224,154,58,.8)','rgba(58,143,213,.8)','rgba(200,168,75,.8)']);
+
+  // ── PAYMENT PIE ────────────────────────────────────────────
+  let pCash=0,pCard=0,pAcc=0;
+  [...sales,...tblOrders].forEach(s=>{
+    const t=parseFloat(s.total)||0;
+    if(s.payment==='Μετρητά')pCash+=t;
+    else if(s.payment==='Κάρτα')pCard+=t;
+    else pAcc+=t;
+  });
+  makeDoughnut('chart-pay',['Μετρητά','Κάρτα','Λογαριασμός'],[pCash,pCard,pAcc],['rgba(109,191,90,.8)','rgba(58,143,213,.8)','rgba(224,92,92,.8)']);
+
+  // ── TOP PRODUCTS ───────────────────────────────────────────
+  const prodMap={};
+  [...sales,...tblOrders].forEach(s=>{
+    (s.items||[]).forEach(it=>{
+      if(!prodMap[it.name])prodMap[it.name]={rev:0,cnt:0,emoji:it.emoji||'🔹'};
+      prodMap[it.name].rev+=(parseFloat(it.price||0)+parseFloat(it.extra||0))*it.qty;
+      prodMap[it.name].cnt+=it.qty;
+    });
+  });
+  const top=Object.entries(prodMap).sort((a,b)=>b[1].rev-a[1].rev).slice(0,12);
+  const maxRev=top[0]?top[0][1].rev:1;
+  document.getElementById('top-list').innerHTML=top.map(([name,d],i)=>`
+    <div class="top-item">
+      <div class="top-rank">#${i+1}</div>
+      <div class="top-name">${d.emoji} ${name}</div>
+      <div class="top-bar-wrap"><div class="top-bar" style="width:${(d.rev/maxRev*100).toFixed(0)}%"></div></div>
+      <div class="top-val">${fmtE(d.rev)}</div>
+      <div class="top-cnt">${d.cnt} τεμ.</div>
+    </div>`).join('') || '<div style="color:var(--mt);padding:12px;text-align:center">Δεν υπάρχουν δεδομένα</div>';
+
+  // ── VAT ────────────────────────────────────────────────────
+  const vatMap={};
+  [...sales,...tblOrders].forEach(s=>{
+    (s.items||[]).forEach(it=>{
+      const rate=it.vat||24;
+      const gross=(parseFloat(it.price||0)+parseFloat(it.extra||0))*it.qty;
+      if(!vatMap[rate])vatMap[rate]={gross:0};
+      vatMap[rate].gross+=gross;
+    });
+  });
+  document.getElementById('vat-grid').innerHTML=Object.entries(vatMap).sort((a,b)=>+a[0]-+b[0]).map(([rate,d])=>{
+    const tax=d.gross-(d.gross/(1+rate/100));
+    const net=d.gross-tax;
+    return `<div class="vat-card">
+      <div class="vat-rate">ΦΠΑ ${rate}%</div>
+      <div class="vat-gross">${fmtE(d.gross)}</div>
+      <div class="vat-tax">ΦΠΑ: ${fmtE(tax)}</div>
+      <div class="vat-net">Καθαρό: ${fmtE(net)}</div>
+    </div>`;
+  }).join('') || '<div style="color:var(--mt);padding:12px">Δεν υπάρχουν δεδομένα</div>';
+}
+
+// ── CHART HELPERS ──────────────────────────────────────────
+const FONT={color:'#5A7050',size:11};
+const GRID='rgba(80,160,80,.08)';
+function baseOpts(extra={}){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0F1A0F',borderColor:'rgba(80,160,80,.3)',borderWidth:1,titleColor:'#E8F0E0',bodyColor:'#C8A84B',callbacks:{label:ctx=>' '+ctx.parsed.y?.toFixed(2).replace('.',',')||''}}}},scales:{x:{ticks:{color:FONT.color,font:{size:FONT.size}},grid:{color:GRID}},y:{ticks:{color:FONT.color,font:{size:FONT.size},callback:v=>v.toFixed(0)+'€'},grid:{color:GRID}}},...extra}}
+function makeBar(id,labels,data,bg,border){
+  const ctx=document.getElementById(id).getContext('2d');
+  charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data,backgroundColor:bg,borderColor:border,borderWidth:1,borderRadius:4}]},options:baseOpts()});
+}
+function makeLine(id,labels,data){
+  const ctx=document.getElementById(id).getContext('2d');
+  charts[id]=new Chart(ctx,{type:'line',data:{labels,datasets:[{data,borderColor:'rgba(109,191,90,1)',backgroundColor:'rgba(109,191,90,.1)',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:'rgba(109,191,90,1)'}]},options:baseOpts()});
+}
+function makeDoughnut(id,labels,data,colors){
+  const ctx=document.getElementById(id).getContext('2d');
+  charts[id]=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors,borderColor:'rgba(15,26,15,1)',borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#5A7050',font:{size:11},padding:12}},tooltip:{backgroundColor:'#0F1A0F',borderColor:'rgba(80,160,80,.3)',borderWidth:1,titleColor:'#E8F0E0',bodyColor:'#C8A84B',callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed.toFixed(2).replace('.',',')}€`}}}}
+  });
+}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2000)}
+</script>
+</body>
+</html>
