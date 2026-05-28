@@ -1009,9 +1009,12 @@ async function loadCash(){
     const today=new Date();today.setHours(0,0,0,0);
     const todayStr=today.toISOString().split('T')[0];
     let tbCash=0,tbCard=0,tbAcc=0;
-    const tSnap=await db.collection('table_orders').where('status','==','closed').where('closedAt','>=',today).get();
+    const tSnap=await db.collection('table_orders').where('status','==','closed').get();
     tSnap.forEach(d=>{
-      const data=d.data(),t=parseFloat(data.total)||0;
+      const data=d.data();
+      const closed=data.closedAt?data.closedAt.toDate():new Date(0);
+      if(closed<today)return;
+      const t=parseFloat(data.total)||0;
       if(data.payment==='Μετρητά')tbCash+=t;
       else if(data.payment==='Κάρτα')tbCard+=t;
       else tbAcc+=t;
