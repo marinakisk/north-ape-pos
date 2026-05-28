@@ -1008,10 +1008,12 @@ async function loadCash(){
   try{
     const today=new Date();today.setHours(0,0,0,0);
     const todayStr=today.toISOString().split('T')[0];
+    // TABLE ORDERS: no WHERE filters → no index needed, filter in JS
     let tbCash=0,tbCard=0,tbAcc=0;
-    const tSnap=await db.collection('table_orders').where('status','==','closed').get();
+    const tSnap=await db.collection('table_orders').get();
     tSnap.forEach(d=>{
       const data=d.data();
+      if(data.status!=='closed')return;
       const closed=data.closedAt?data.closedAt.toDate():new Date(0);
       if(closed<today)return;
       const t=parseFloat(data.total)||0;
@@ -1019,6 +1021,7 @@ async function loadCash(){
       else if(data.payment==='Κάρτα')tbCard+=t;
       else tbAcc+=t;
     });
+    // POS SALES: single field equality → no index needed
     let taCash=0,taCard=0,taAcc=0,dlCash=0,dlCard=0,dlAcc=0;
     const pSnap=await db.collection('pos_sales').where('date','==',todayStr).get();
     pSnap.forEach(d=>{
@@ -1032,13 +1035,17 @@ async function loadCash(){
     el.innerHTML=
       sec('🥡 Take Away')+crow('💵 Μετρητά',taCash)+crow('💳 Κάρτα',taCard)+crow('📋 Λογαριασμός',taAcc)+
       sec('🚚 Delivery')+crow('💵 Μετρητά',dlCash)+crow('💳 Κάρτα',dlCard)+crow('📋 Λογαριασμός',dlAcc)+
-      sec('🪑 Τραπεζια')+crow('💵 Μετρητά',tbCash)+crow('💳 Κάρτα',tbCard)+crow('📋 Λογαριασμός',tbAcc)+
-      '<div class="cashrow cashrowtot" style="margin-top:10px"><span class="cashlbl">🏆 ΓΕΝΙΚΟ ΣΥΝΟΛΟ</span><span class="cashval" style="color:var(--ac);font-size:1.5rem">'+total.toFixed(2).replace('.',',')+'€</span></div>';
+      sec('🪑 Τραπέζια')+crow('💵 Μετρητά',tbCash)+crow('💳 Κάρτα',tbCard)+crow('📋 Λογαριασμός',tbAcc)+
+      '<div class="cashrow cashrowtot" style="margin-top:10px">'+
+        '<span class="cashlbl">🏆 ΓΕΝΙΚΟ ΣΥΝΟΛΟ</span>'+
+        '<span class="cashval" style="color:var(--ac);font-size:1.5rem">'+total.toFixed(2).replace('.',',')+'€</span>'+
+      '</div>';
   }catch(e){
     console.error('loadCash:',e);
-    el.innerHTML='<div style="color:var(--dn);padding:16px;text-align:center">❌ Σφάλμα: '+e.message+'</div>';
+    el.innerHTML='<div style="color:var(--dn);padding:16px;text-align:center">❌ '+e.message+'</div>';
   }
 }
+
 function sec(t){return '<div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:var(--mt);margin:10px 0 4px">'+t+'</div>';}
 function crow(lbl,amount){return '<div class="cashrow"><span class="cashlbl">'+lbl+'</span><span class="cashval">'+amount.toFixed(2).replace('.',',')+'€</span></div>';}
 async function closeDayCash(){
